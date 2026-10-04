@@ -212,40 +212,100 @@ function decodeCobaltItem(item, index = 0) {
 }
 
 async function callCobalt(sourceUrl) {
-  const base = (process.env.COBALT_API_URL || DEFAULT_COBALT_API).replace(/\/$/, "");
-  const response = await fetchWithTimeout(`${base}/api/json`, {
-    method: "POST",
-    headers: {
-      "accept": "application/json",
-      "content-type": "application/json",
-      "user-agent": "Z-downloder/1.0"
-    },
-    body: JSON.stringify({
-      url: sourceUrl,
-      vCodec: "h264",
-      vQuality: "max",
-      filenamePattern: "basic",
-      isAudioOnly: false,
-      isTTFullAudio: false,
-      isAudioMuted: false,
-      disableMetadata: false
-    })
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data?.text || `Provider error (${response.status})`);
-  if (["error", "rate-limit"].includes(data?.status)) throw new Error(data?.text || "Provider menolak request.");
+  const configured = (process.env.COBALT_API_URL || "").trim();
+  const candidates = configured
+    ? [configured.replace(/\/$/, "")]
+    : ["https://co.wuk.sh/api/json", "https://co.wuk.sh"];
 
-  const assets = [];
-  if (data.status === "picker" && Array.isArray(data.picker)) {
-    for (let i = 0; i < data.picker.length; i++) {
-      const item = decodeCobaltItem(data.picker[i], i);
-      if (item) assets.push(item);
+  let lastError = null;
+  for (const endpoint of candidates) {
+    try {
+      const response = await fetchWithTimeout(endpoint, {
+        method: "POST",
+        headers: {
+          "accept": "application/json",
+          "content-type": "application/json",
+          "user-agent": "Z-downloder/1.1",
+          "referer": "https://cobalt.tools/"
+        },
+        body: JSON.stringify({
+          url: sourceUrl,
+          vCodec: "h264",
+          vQuality: "max",
+          aFormat: "best",
+          filenamePattern: "basic",
+          isAudioOnly: false,
+          isTTFullAudio: false,
+          isAudioMuted: false,
+          disableMetadata: false
+        })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data?.text || data?.error?.code || `Provider HTTP ${response.status}`);
+      if (["error", "rate-limit"].includes(data?.status)) throw new Error(data?.text || data?.error?.code || "Provider menolak request.");
+
+      const assets = [];
+      if (data.status === "picker" && Array.isArray(data.picker)) {
+        for (let i = 0; i < data.picker.length; i++) {
+          const item = decodeCobaltItem(data.picker[i], i);
+          if (item) assets.push(item);
+        }
+      } else if (data?.url) {
+        assets.push({ url: data.url, thumbnail: null, type: "video", index: 0 });
+      }
+      if (assets.length === 0) throw new Error("Media tidak ditemukan dari provider.");
+      return { assets, status: data.status, provider: endpoint };
+    } catch (error) {
+      lastError = error;
     }
-  } else if (data?.url) {
-    assets.push({ url: data.url, thumbnail: null, type: "video", index: 0 });
   }
-  if (assets.length === 0) throw new Error("Media tidak ditemukan dari provider.");
-  return { assets, status: data.status, provider: base };
+  throw new Error(`API media tidak dapat dihubungi. ${lastError?.message || "Coba lagi."}`);
+}
+
+async function callTikTokFreeApi(sourceUrl) {
+  const endpoint = `https://tdownv4.sl-bjs.workers.dev/?down=${encodeURIComponent(sourceUrl)}`;
+  try {
+    const response = await fetchWithTimeout(endpoint, {
+      headers: {
+        "accept": "application/json,text/plain,*/*",
+        "user-agent": "Z-downloder/1.1"
+      }
+    }, 15000);
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data?.message || `TikTok API HTTP ${response.status}`);
+    const media = data.download_url || data.video?.[0] || data.video || data.url;
+    if (!media || typeof media !== "string") throw new Error("API TikTok tidak mengembalikan file media.");
+    return {
+      assets: [{ url: media, thumbnail: data.author?.avatar || null, type: "video", index: 0 }],
+      provider: "TikTok free API",
+      title: data.title || null,
+      description: data.title || null,
+      durationSeconds: Number(data.author?.duration) || null
+    };
+  } catch (error) {
+    throw new Error(`TikTok API gagal: ${error?.message || "fetch failed"}`);
+  }
+}
+
+async function resolveInstagramPublic(sourceUrl) {
+  const page = await fetchPageMetadata(sourceUrl);
+  const html = page.html;
+  if (!html) throw new Error("Instagram tidak mengizinkan halaman publik dibaca dari server. Coba link Reel/Post publik lain.");
+
+  const video = metaValue(html, "og:video:secure_url") || metaValue(html, "og:video") || metaValue(html, "twitter:player:stream");
+  if (video) return [{ url: video, thumbnail: metaValue(html, "og:image"), type: "video", index: 0 }];
+
+  const image = metaValue(html, "og:image") || metaValue(html, "twitter:image");
+  if (image) return [{ url: image, thumbnail: image, type: "image", index: 0 }];
+
+  const candidates = [...html.matchAll(/https?:\/\/[^"'\s<>]+\.(?:mp4|jpg|jpeg|png)(?:\?[^"'\s<>]*)?/gi)]
+    .map((m) => decodeHtml(m[0]).replace(/\\u0026/g, "&").replace(/\\\//g, "/"));
+  const videoCandidate = candidates.find((u) => /\\.mp4(?:\\?|$)/i.test(u));
+  if (videoCandidate) return [{ url: videoCandidate, thumbnail: metaValue(html, "og:image"), type: "video", index: 0 }];
+  const imageCandidate = candidates.find((u) => /\\.(?:jpg|jpeg|png)(?:\\?|$)/i.test(u));
+  if (imageCandidate) return [{ url: imageCandidate, thumbnail: imageCandidate, type: "image", index: 0 }];
+
+  throw new Error("Instagram tidak memberikan URL media publik. Konten mungkin login-only, privat, atau URL sudah tidak aktif.");
 }
 
 async function resolvePinterest(sourceUrl) {
@@ -281,9 +341,27 @@ export async function inspectUrl(sourceUrl) {
   if (platform === "pinterest") {
     page = await fetchPageMetadata(clean);
     result = { assets: await resolvePinterest(clean), provider: "Pinterest HTML parser" };
+  } else if (platform === "tiktok") {
+    try {
+      result = await callTikTokFreeApi(clean);
+      page = await fetchPageMetadata(clean);
+    } catch (primaryError) {
+      result = await callCobalt(clean);
+      page = await fetchPageMetadata(clean);
+      if (!result) throw primaryError;
+    }
   } else {
-    result = await callCobalt(clean);
-    page = await fetchPageMetadata(clean);
+    try {
+      result = { assets: await resolveInstagramPublic(clean), provider: "Instagram public HTML parser" };
+      page = await fetchPageMetadata(clean);
+    } catch (primaryError) {
+      try {
+        result = await callCobalt(clean);
+        page = await fetchPageMetadata(clean);
+      } catch (fallbackError) {
+        throw new Error(`${primaryError?.message || "Instagram gagal"} Fallback API juga gagal: ${fallbackError?.message || "fetch failed"}`);
+      }
+    }
   }
 
   const title = page.html ? findTitle(page.html) : null;
