@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0b080d" />
+  <meta name="description" content="Z-downloder — downloader dark goth untuk TikTok, Instagram, dan Pinterest." />
+  <title>Z-downloder — Dark Media Downloader</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="grain"></div>
+  <div class="orb orb-a"></div>
+  <div class="orb orb-b"></div>
+  <div class="thorn thorn-left"></div>
+  <div class="thorn thorn-right"></div>
+
+  <main class="shell">
+    <header class="hero">
+      <div class="eyebrow"><span class="sigil">✦</span> PRIVATE-FEEL • PUBLIC MEDIA</div>
+      <h1 id="brand" class="brand" data-platform="none" aria-label="Z-downloder">Z-downloder</h1>
+      <p class="hero-copy">Satu link. Satu scan. Media terdeteksi dulu, baru diunduh.</p>
+    </header>
+
+    <section class="panel" aria-label="Downloader">
+      <div class="platform-row" role="tablist" aria-label="Platform">
+        <button class="platform-btn" data-platform="tiktok" type="button" role="tab" aria-selected="false"><span>♪</span> TikTok</button>
+        <button class="platform-btn" data-platform="instagram" type="button" role="tab" aria-selected="false"><span>◎</span> IG / Reels</button>
+        <button class="platform-btn" data-platform="pinterest" type="button" role="tab" aria-selected="false"><span>⌁</span> Pins</button>
+      </div>
+
+      <div class="input-wrap">
+        <label for="urlInput">Link media</label>
+        <div class="input-row">
+          <div class="url-field">
+            <span class="url-icon">↗</span>
+            <input id="urlInput" type="url" inputmode="url" autocomplete="off" placeholder="https://... paste link TikTok / IG / Pinterest" />
+          </div>
+          <button id="scanBtn" class="scan-btn" type="button">
+            <span class="btn-icon">⌁</span>
+            <span class="btn-text">SCAN</span>
+            <span class="spinner" aria-hidden="true"></span>
+          </button>
+        </div>
+        <div class="hint">Scan akan mencoba membaca isi URL dan mengunci platform secara otomatis.</div>
+      </div>
+
+      <div id="status" class="status" role="status" aria-live="polite"></div>
+      <div id="result" class="result" hidden></div>
+    </section>
+
+    <section class="steps" aria-label="Cara kerja">
+      <div class="step"><span>01</span><div><strong>Paste</strong><small>Tempel link publik</small></div></div>
+      <div class="step"><span>02</span><div><strong>Scan</strong><small>Deteksi platform & media</small></div></div>
+      <div class="step"><span>03</span><div><strong>Download</strong><small>Ambil file dari sumber</small></div></div>
+    </section>
+
+    <footer class="footer">
+      <span>© Z-downloder</span>
+      <span>Gunakan hanya untuk konten publik yang memang boleh kamu simpan.</span>
+    </footer>
+  </main>
+
+  <template id="resultTemplate">
+    <article class="result-card">
+      <div class="preview-col">
+        <div class="preview-frame">
+          <img class="preview-img" alt="Preview media" />
+          <div class="preview-placeholder"><span>☾</span></div>
+          <div class="media-badge"></div>
+        </div>
+      </div>
+      <div class="info-col">
+        <div class="result-topline"><span class="platform-pill"></span><span class="provider-pill"></span></div>
+        <h2 class="result-title"></h2>
+        <p class="result-desc"></p>
+        <div class="meta-grid">
+          <div class="meta-box"><span>JENIS</span><strong class="meta-type"></strong></div>
+          <div class="meta-box"><span>DURASI</span><strong class="meta-duration"></strong></div>
+          <div class="meta-box"><span>UKURAN</span><strong class="meta-size"></strong></div>
+        </div>
+        <div class="asset-list"></div>
+      </div>
+    </article>
+  </template>
+
+  <script src="app.js" defer></script>
+</body>
+</html>

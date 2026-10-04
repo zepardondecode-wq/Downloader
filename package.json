@@ -1,0 +1,11 @@
+{
+  "name": "z-downloder",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Z-downloder — dark goth media downloader for TikTok, Instagram and Pinterest, ready for Netlify.",
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "check": "node --check netlify/lib/media.mjs && node --check netlify/functions/scan.mjs && node --check netlify/functions/download.mjs"
+  }
+}
